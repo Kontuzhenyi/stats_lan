@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 
 # Директория для сохранения pcap-файлов
-PCAP_DIR = "/home/viktor/pcap_files"
+PCAP_DIR = "/home/viktor/stats_lan/pcap_files"
 os.makedirs(PCAP_DIR, exist_ok=True)
 PCAP_PATTERN = os.path.join(PCAP_DIR, "traffic_%Y%m%d_%H%M%S.pcap")
 
