@@ -2,7 +2,6 @@ import subprocess
 import os
 import time
 import sqlite3
-from datetime import datetime
 import glob
 import logging
 import sys
@@ -11,14 +10,11 @@ import sys
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%I:%M:%S %p',  # 12-часовой формат с AM/PM
     handlers=[
         logging.StreamHandler(sys.stdout)  # Вывод в stdout для journald
     ]
 )
-
-# Устанавливаем временную зону (+5 часов от UTC)
-# os.environ['TZ'] = 'UTC+5'
-# time.tzset()
 
 # Директория с pcap-файлами
 PCAP_DIR = "/home/viktor/stats_lan/pcap_files"
@@ -35,11 +31,11 @@ def is_file_in_use(pcap_file):
             time.sleep(2)  # Ждём 2 секунды
             size2 = os.path.getsize(pcap_file)
             if size1 != size2:
-                logging.warning(f"Файл {pcap_file} всё ещё записывается (размер изменился).")
+                # logging.warning(f"Файл {pcap_file} всё ещё записывается (размер изменился).")
                 return True
             return False
     except IOError:
-        logging.warning(f"Файл {pcap_file} занят другим процессом.")
+        # logging.warning(f"Файл {pcap_file} занят другим процессом.")
         return True
 
 def check_pcap_integrity(pcap_file):
@@ -111,8 +107,11 @@ def parse_pcap(pcap_file):
 def process_pcap(pcap_file):
     """Обрабатывает pcap-файл и записывает предварительные данные во временную таблицу."""
     if is_file_in_use(pcap_file):
-        logging.info(f"Файл {pcap_file} ещё записывается. Пропускаем...")
+        logging.info(f"Файл {os.path.basename(pcap_file)} ещё записывается. Пропускаем...")
         return False
+
+    logging.info("-" * 50)  # Разделительная линия
+    logging.info(f"Начало работы с {os.path.basename(pcap_file)}")  # Только имя файла
 
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -130,20 +129,21 @@ def process_pcap(pcap_file):
     ''')
 
     traffic_data = parse_pcap(pcap_file)
-    # print(traffic_data)
-    # print(traffic_data)
+
     if not traffic_data:
-        logging.warning(f"Нет данных для обработки в файле {pcap_file}")
+        logging.warning(f"Нет данных для обработки в файле {os.path.basename(pcap_file)}")
         os.remove(pcap_file)
-        logging.info(f"Файл {pcap_file} удалён так как в нем не было данных")
+        logging.info(f"Файл {os.path.basename(pcap_file)} удалён так как в нем не было данных")
         conn.close()
         return False
-
-    logging.info(f"Обработка файла: {pcap_file}")
     
+    # Подсчёт трафика для возврата
+    total_rx, total_tx = 0, 0
     for ip, data in traffic_data.items():
         rx_bytes = data.get('received', 0)
         tx_bytes = data.get('sent', 0)
+        total_rx += rx_bytes
+        total_tx += tx_bytes
         mac = None  # MAC пока не определён
 
         # Проверка существования записи для этого IP
@@ -163,11 +163,10 @@ def process_pcap(pcap_file):
                 INSERT INTO temp_traffic (ip, rx, tx, mac)
                 VALUES (?, ?, ?, ?)
             ''', (ip, rx_bytes, tx_bytes, mac))
-        logging.info(f"Записана предварительная запись: ip={ip}, rx={rx_bytes}, tx={tx_bytes}")
 
     conn.commit()
     conn.close()
-    return True
+    return total_rx, total_tx
 
 def main():
     """Основная функция парсера: отслеживает и обрабатывает pcap-файлы."""
@@ -181,10 +180,13 @@ def main():
             continue
 
         for pcap_file in pcap_files:
-            if process_pcap(pcap_file):
+            result = process_pcap(pcap_file)
+            if result:
+                total_rx, total_tx = result
+                logging.info(f"Добавленный трафик: RX={int(total_rx / 1000)} Кбайт, TX={int(total_tx / 1000)} Кбайт")
                 try:
                     os.remove(pcap_file)
-                    logging.info(f"Файл {pcap_file} обработан и удалён.")
+                    logging.info(f"Файл {os.path.basename(pcap_file)} обработан и удалён.")
                 except OSError as e:
                     logging.error(f"Не удалось удалить файл {pcap_file}: {e}")
 
