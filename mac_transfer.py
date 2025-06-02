@@ -5,22 +5,20 @@ import logging
 import os
 import time
 import sys
+from threading import Thread
 
 # Настройка логирования для journald
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%I:%M:%S %p',  # 12-часовой формат с AM/PM
     handlers=[
         logging.StreamHandler(sys.stdout)  # Вывод в stdout для journald
     ]
 )
 
-# Устанавливаем временную зону (+5 часов от UTC)
-# os.environ['TZ'] = 'UTC+5'
-# time.tzset()
-
-DB_FILE = "/home/viktor/network_test.db"
-CHECK_INTERVAL = 10  # Интервал проверки в секундах
+DB_FILE = "/home/viktor/stats_lan/network_test.db"
+CHECK_INTERVAL = 30  # Интервал проверки в секундах
 TRANSFER_DELAY = timedelta(minutes=10)  # Задержка перед переносом (2 часа)
 
 def get_mac_for_ip(ip):
@@ -82,6 +80,19 @@ def process_records():
     for record in records:
         record_id, ip, rx, tx, mac, timestamp = record
         if mac is None:
+            # Определяем MAC в отдельном потоке для ускорения
+            # def update_mac():
+            #     new_mac = get_mac_for_ip(ip)
+            #     with sqlite3.connect(DB_FILE) as conn_inner:
+            #         cursor_inner = conn_inner.cursor()
+            #         cursor_inner.execute('''
+            #             UPDATE temp_traffic
+            #             SET mac = ?, timestamp = ?
+            #             WHERE id = ?
+            #         ''', (new_mac, datetime.now(), record_id))
+            #         conn_inner.commit()
+            #         logging.info(f"Определён MAC для ip={ip}: {new_mac}")
+            # Thread(target=update_mac).start()
             new_mac = get_mac_for_ip(ip)
             cursor.execute('''
                 UPDATE temp_traffic
@@ -102,7 +113,7 @@ def process_records():
 
 def main():
     """Основная функция сервиса: периодическая проверка и обработка."""  
-    logging.info("Сервис определения MAC и переноса данных запущен.")
+    logging.info("Сервис определения MAC и переноса данных в основную таблицу запущен.")
     while True:
         process_records()
         time.sleep(CHECK_INTERVAL)
