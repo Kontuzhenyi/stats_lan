@@ -1,7 +1,7 @@
 import subprocess
 import os
 import time
-import sqlite3
+import psycopg2
 import glob
 import logging
 import sys
@@ -18,7 +18,16 @@ logging.basicConfig(
 
 # Директория с pcap-файлами
 PCAP_DIR = "/home/viktor/stats_lan/pcap_files"
-DB_FILE = "/home/viktor/stats_lan/network_test.db"
+# DB_FILE = "/home/viktor/stats_lan/network_test.db"
+
+# Конфигурация подключения к PostgreSQL
+DB_CONFIG = {
+    'dbname': 'network_statistics',
+    'user': 'viktor',
+    'password': 'CZ7F~B!r1$(6h$sY_\OC',
+    'host': 'localhost',
+    'port': 5432
+}
 
 def is_file_in_use(pcap_file):
     """
@@ -31,15 +40,13 @@ def is_file_in_use(pcap_file):
             time.sleep(2)  # Ждём 2 секунды
             size2 = os.path.getsize(pcap_file)
             if size1 != size2:
-                # logging.warning(f"Файл {pcap_file} всё ещё записывается (размер изменился).")
                 return True
             return False
     except IOError:
-        # logging.warning(f"Файл {pcap_file} занят другим процессом.")
         return True
 
 def check_pcap_integrity(pcap_file):
-    """Проверяет целостность pcap-файла с помощью tshark."""
+    # Проверяет целостность pcap-файла с помощью tshark
     cmd = ['tshark', '-r', pcap_file]
     logging.info(f"Запускаем команду на проверку целостности: {cmd}")
     
@@ -71,12 +78,11 @@ def check_pcap_integrity(pcap_file):
         return False
 
 def parse_pcap(pcap_file):
-    """Парсинг pcap-файла с помощью tshark."""
+    # Парсинг pcap-файла с помощью tshark
     traffic_data = {}
     cmd = ['tshark', '-r', pcap_file, '-q', '-z', 'conv,ip']
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     tshark_output = result.stdout.decode()
-    # print(tshark_output)
 
     count = 0
     for line in tshark_output.split('\n'):
@@ -105,7 +111,7 @@ def parse_pcap(pcap_file):
     return traffic_data
 
 def process_pcap(pcap_file):
-    """Обрабатывает pcap-файл и записывает предварительные данные во временную таблицу."""
+    # Записывает предварительные данные во временную таблицу
     if is_file_in_use(pcap_file):
         logging.info(f"Файл {os.path.basename(pcap_file)} ещё записывается. Пропускаем...")
         return False
@@ -113,18 +119,18 @@ def process_pcap(pcap_file):
     logging.info("-" * 50)  # Разделительная линия
     logging.info(f"Начало работы с {os.path.basename(pcap_file)}")  # Только имя файла
 
-    conn = sqlite3.connect(DB_FILE)
+    conn = psycopg2.connect(**DB_CONFIG)
     cursor = conn.cursor()
     
     # Создание временной таблицы, если её нет
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS temp_traffic (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             ip TEXT NOT NULL,
             rx INTEGER,
             tx INTEGER,
             mac TEXT,
-            timestamp DATETIME
+            transfer_time TIMESTAMP WITH TIME ZONE
         )
     ''')
 
@@ -147,7 +153,9 @@ def process_pcap(pcap_file):
         mac = None  # MAC пока не определён
 
         # Проверка существования записи для этого IP
-        cursor.execute('SELECT rx, tx FROM temp_traffic WHERE ip = ?', (ip,))
+        cursor.execute('''
+            SELECT rx, tx FROM temp_traffic WHERE ip = %s
+        ''', (ip,))
         existing = cursor.fetchone()
         if existing:
             current_rx, current_tx = existing
@@ -155,21 +163,21 @@ def process_pcap(pcap_file):
             new_tx = current_tx + tx_bytes
             cursor.execute('''
                 UPDATE temp_traffic
-                SET rx = ?, tx = ?
-                WHERE ip = ?
+                SET rx = %s, tx = %s
+                WHERE ip = %s
             ''', (new_rx, new_tx, ip))
         else:
             cursor.execute('''
-                INSERT INTO temp_traffic (ip, rx, tx, mac)
-                VALUES (?, ?, ?, ?)
-            ''', (ip, rx_bytes, tx_bytes, mac))
+                INSERT INTO temp_traffic (ip, rx, tx)
+                VALUES (%s, %s, %s)
+            ''', (ip, rx_bytes, tx_bytes))
 
     conn.commit()
     conn.close()
     return total_rx, total_tx
 
 def main():
-    """Основная функция парсера: отслеживает и обрабатывает pcap-файлы."""
+    # Основная функция парсера: отслеживает и обрабатывает pcap-файлы.
     logging.info("Парсер запущен.")
 
     while True:
