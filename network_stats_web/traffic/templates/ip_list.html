@@ -1,0 +1,12 @@
+<h2>Список уникальных IP-адресов</h2>
+<ul>
+  {% for ip in ip_addresses %}
+    <li>{{ ip }}</li>
+  {% endfor %}
+  <p>Всего уникальных IP-адресов: {{ ip_count }}</p>
+
+  {% for mac in mac_addresses %}
+    <li>{{ mac }}</li>
+  {% endfor %}
+  <p>Всего уникальных mac-адресов: {{ mac_count }}</p>
+</ul>

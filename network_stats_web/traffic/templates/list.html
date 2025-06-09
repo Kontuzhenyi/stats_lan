@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Сетевая статистика</title>
+</head>
+<body>
+    <h1>Последние подключения</h1>
+    <table border="1">
+        <tr>
+            <th>IP</th><th>MAC</th><th>RX</th><th>TX</th><th>Время</th>
+        </tr>
+        {% for entry in traffic_data %}
+        <tr>
+            <td>{{ entry.ip }}</td>
+            <td>{{ entry.mac }}</td>
+            <td>{{ entry.rx }}</td>
+            <td>{{ entry.tx }}</td>
+            <td>{{ entry.inserted_at }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

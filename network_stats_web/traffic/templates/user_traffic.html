@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Суммарный трафик по пользователям</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin: 20px auto;
+        }
+        th, td {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+        }
+        th {
+            background: #eee;
+        }
+    </style>
+</head>
+<body>
+    <h2 style="text-align:center;">Суммарный трафик по пользователям</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>IP-адрес</th>
+                <th>MAC-адрес</th>
+                <th>Входящий трафик (Мбайт)</th>
+                <th>Исходящий трафик (Мбайт)</th>
+                <th>Общий трафик (Мбайт)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in user_traffic %}
+            <tr>
+                <td>{{ user.ip }}</td>
+                <td>{{ user.mac }}</td>
+                <td>{{ user.total_rx }}</td>
+                <td>{{ user.total_tx }}</td>
+                <td>{{ user.total_traffic }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
