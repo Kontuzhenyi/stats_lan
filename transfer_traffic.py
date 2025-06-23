@@ -26,7 +26,7 @@ def main():
             CREATE TABLE IF NOT EXISTS {target_table} (
                 id SERIAL PRIMARY KEY,
                 ip TEXT NOT NULL,
-                mac TEXT,
+                mac MACADDR,
                 rx BIGINT,
                 tx BIGINT,
                 inserted_at TIMESTAMP DEFAULT NOW()

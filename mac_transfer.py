@@ -34,11 +34,11 @@ def get_mac_for_ip(ip):
         nm = nmap.PortScanner()
         nm.scan(hosts=ip, arguments='-sn', sudo=True)
         if ip in nm.all_hosts() and nm[ip].state() == 'up':
-            return nm[ip]['addresses'].get('mac', 'N/A')
-        return 'N/A'
+            return nm[ip]['addresses'].get('mac', '00:00:00:00:00:00')
+        return '00:00:00:00:00:00'
     except Exception as e:
         logging.error(f"Ошибка определения MAC для {ip}: {e}")
-        return 'N/A'
+        return '00:00:00:00:00:00'
 
 def transfer_to_main_table(conn, ip, mac, rx, tx, current_month):
     # Переносит данные в основную таблицу traffic_<YYYYMM>
@@ -49,7 +49,7 @@ def transfer_to_main_table(conn, ip, mac, rx, tx, current_month):
         CREATE TABLE IF NOT EXISTS {table_name} (
             id SERIAL PRIMARY KEY,
             ip TEXT NOT NULL,
-            mac TEXT,
+            mac MACADDR,
             rx INTEGER,
             tx INTEGER,
             transfer_time TIMESTAMP WITH TIME ZONE
@@ -96,7 +96,7 @@ def process_records():
                 new_mac = get_mac_for_ip(ip)
                 cursor.execute('''
                     UPDATE temp_traffic
-                    SET mac = %s, transfer_time = NOW() + INTERVAL '30 minutes'
+                    SET mac = %s, transfer_time = NOW() + INTERVAL '5 minutes'
                     WHERE id = %s
                 ''', (new_mac, record_id))
                 logging.info(f"Определён MAC для ip={ip}: {new_mac}")

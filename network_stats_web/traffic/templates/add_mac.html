@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add MAC Address</title>
+</head>
+<body>
+    <h1>Add MAC Address</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Submit</button>
+    </form>
+    <h2>Existing MAC Addresses</h2>
+    <ul>
+        {% for mac in mac_addresses %}
+            <li>{{ mac.mac }} - {{ mac.description }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

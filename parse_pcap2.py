@@ -124,13 +124,11 @@ def process_pcap(pcap_file):
     
     # Создание временной таблицы, если её нет
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS temp_traffic (
+        CREATE TABLE IF NOT EXISTS traffic_buffer (
             id SERIAL PRIMARY KEY,
-            ip TEXT NOT NULL,
-            rx INTEGER,
-            tx INTEGER,
-            mac TEXT,
-            transfer_time TIMESTAMP WITH TIME ZONE
+            ip INET NOT NULL,
+            rx BIGINT,
+            tx BIGINT
         )
     ''')
 
@@ -150,11 +148,10 @@ def process_pcap(pcap_file):
         tx_bytes = data.get('sent', 0)
         total_rx += rx_bytes
         total_tx += tx_bytes
-        mac = None  # MAC пока не определён
 
         # Проверка существования записи для этого IP
         cursor.execute('''
-            SELECT rx, tx FROM temp_traffic WHERE ip = %s
+            SELECT rx, tx FROM traffic_buffer WHERE ip = %s
         ''', (ip,))
         existing = cursor.fetchone()
         if existing:
@@ -168,7 +165,7 @@ def process_pcap(pcap_file):
             ''', (new_rx, new_tx, ip))
         else:
             cursor.execute('''
-                INSERT INTO temp_traffic (ip, rx, tx)
+                INSERT INTO traffic_buffer (ip, rx, tx)
                 VALUES (%s, %s, %s)
             ''', (ip, rx_bytes, tx_bytes))
 
@@ -184,7 +181,7 @@ def main():
         pcap_files = sorted(glob.glob(os.path.join(PCAP_DIR, "traffic_*.pcap")))
         if not pcap_files:
             logging.info("Нет файлов для обработки. Ожидание...")
-            time.sleep(30)
+            time.sleep(17)
             continue
 
         for pcap_file in pcap_files:
@@ -198,7 +195,7 @@ def main():
                 except OSError as e:
                     logging.error(f"Не удалось удалить файл {pcap_file}: {e}")
 
-        time.sleep(15)
+        time.sleep(17)
 
 if __name__ == "__main__":
     main()

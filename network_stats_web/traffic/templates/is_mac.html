@@ -1,0 +1,15 @@
+<h2>Присутствие mac</h2>
+<form method="post">
+    {% csrf_token %}
+    <label>MAC-адрес:</label>
+    <input type="text" name="mac_address" maxlength="17" placeholder="00:1A:2B:3C:4D:5E">
+    <button type="submit">Проверить</button>
+</form>
+
+{% if exists is not None %}
+    {% if exists %}
+        <p style="color: green;">MAC {{ mac }} найден!</p>
+    {% else %}
+        <p style="color: red;">MAC {{ mac }} не найден!</p>
+    {% endif %}
+{% endif %}
