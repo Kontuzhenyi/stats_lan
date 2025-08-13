@@ -24,13 +24,21 @@
 </head>
 <body>
     <div class="container table-container">
-        <h2 class="text-center mb-4">Суммарный трафик по пользователям</h2>
-        <form method="get" class="d-flex justify-content-center mb-4">
+        <h2 class="text-center mb-4">Суммарный трафик по пользователям за последние 7 дней</h2>
+        <form method="get" class="d-flex justify-content-center mb-3">
             <div class="input-group w-50">
                 <input type="text" name="q" class="form-control" placeholder="Поиск по имени пользователя" value="{{ request.GET.q }}">
                 <button type="submit" class="btn btn-primary">Поиск</button>
             </div>
         </form>
+        <div class="d-flex justify-content-center mb-2">
+            <a href="{% url 'first' %}" class="btn btn-outline-secondary">Стартовая страница</a>
+        </div>
+        <div class="d-flex justify-content-center mb-3">
+            <a href="{% url 'add_mac' %}" class="btn btn-outline-secondary">
+                Редактировать MAC-адреса
+            </a>
+        </div>
         <div class="table-responsive">
             <table class="table table-bordered table-striped">
                 <thead class="table-light">
@@ -47,11 +55,11 @@
                     {% for user in user_traffic %}
                     <tr onclick="window.location='{% url 'user_details' user.mac %}'">
                         <td>{{ user.ip }}</td>
-                        <td>{{ user.mac }}</td>
+                        <td>{{ user.mac|upper }}</td>
                         <td>{{ user.username|default:'Unknown' }}</td>
-                        <td>{{ user.total_rx }}</td>
-                        <td>{{ user.total_tx }}</td>
-                        <td>{{ user.total_traffic }}</td>
+                        <td class="text-end">{{ user.total_rx }}</td>
+                        <td class="text-end">{{ user.total_tx }}</td>
+                        <td class="text-end">{{ user.total_traffic }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

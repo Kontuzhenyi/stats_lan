@@ -31,7 +31,7 @@
         <div class="card shadow-sm">
             <div class="card-body">
                 <h2 class="card-title text-center mb-4">Детальный трафик за день {{ date }}</h2>
-                <p class="card-text"><strong>MAC:</strong> {{ mac }}</p>
+                <p class="card-text"><strong>MAC:</strong> {{ mac|upper }}</p>
                 <p class="card-text"><strong>Общий трафик:</strong> {{ total_mb }} MB</p>
                 <div class="table-responsive">
                     <table class="table table-bordered table-striped">
@@ -47,15 +47,17 @@
                             {% for hour in hourly_stats %}
                             <tr>
                                 <td>{{ hour.hour_start|time:"H:i" }} – {{ hour.hour_end|time:"H:i" }}</td>
-                                <td>{{ hour.rx }}</td>
-                                <td>{{ hour.tx }}</td>
-                                <td>{{ hour.total_mb }}</td>
+                                <td class="text-end">{{ hour.rx }}</td>
+                                <td class="text-end">{{ hour.tx }}</td>
+                                <td class="text-end">{{ hour.total_mb }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
-                <a href="{% url 'user_details' mac %}" class="back-link d-block text-center mt-4">← Назад к деталям пользователя</a>
+                <div class="d-flex justify-content-center mt-2">
+                    <a href="{% url 'user_details' mac %}" class="btn btn-outline-secondary">Назад к деталям пользователя</a>
+                </div>
             </div>
         </div>
     </div>

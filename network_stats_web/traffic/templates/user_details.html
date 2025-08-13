@@ -36,10 +36,10 @@
             <div class="card-body">
                 <h2 class="card-title text-center mb-4">Детальная информация о пользователе</h2>
                 <p class="card-text"><strong>Имя пользователя:</strong> {{ username|default:"Неизвестно" }}</p>
-                <p class="card-text"><strong>MAC-адрес:</strong> {{ mac }}</p>
+                <p class="card-text"><strong>MAC-адрес:</strong> {{ mac|upper }}</p>
                 <p class="card-text"><strong>Количество трафика за последний час:</strong> {{ total }} MB</p>
                 {% if active_days %}
-                    <p class="card-text"><strong>Дни активности:</strong></p>
+                    <p class="card-text"><strong>Активность за последние 7 дней:</strong></p>
                     <ul class="list-group list-group-flush">
                         {% for day in active_days %}
                             <li class="list-group-item">
@@ -52,7 +52,16 @@
                 {% else %}
                     <p class="card-text text-muted">Нет данных о днях активности.</p>
                 {% endif %}
-                <a href="{% url 'user_traffic' %}" class="back-link d-block text-center mt-4">← Назад к списку пользователей</a>
+
+                <!-- Кнопка "Данные из архива" -->
+                <div class="text-center mt-4">
+                    <a href="{% url 'user_archive' mac=mac%}?username={{ username }}" class="btn btn-outline-secondary">
+                        Данные из архива
+                    </a>
+                </div>
+                <div class="d-flex justify-content-center mt-2">
+                    <a href="{% url 'user_traffic' %}" class="btn btn-outline-secondary">Назад к списку пользователей</a>
+                </div>
             </div>
         </div>
     </div>

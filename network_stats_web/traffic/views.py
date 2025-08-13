@@ -1,10 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Traffic, MacAddress
+from django.contrib import messages
+from .models import Traffic, MacAddress, TrafficArchive, Reading
 from datetime import timedelta, datetime
 from django.utils import timezone
 from django.db.models import Sum, Min, F, ExpressionWrapper, BigIntegerField, Subquery, OuterRef
-from django.db.models.functions import TruncHour
-from .forms import MacForm
+from django.db.models.functions import TruncHour, TruncDate
+from .forms import MacForm, MeterReadingForm
 
 def traffic_list(request):
     data = Traffic.objects.all().order_by('-inserted_at')[:50] # Берем только последние 100 записей
@@ -75,9 +76,9 @@ def user_traffic_list(request):
     )
     # print(user_traffic_row[0])
     for row in user_traffic_row:
-        row['total_rx'] = round(row['total_rx'] / (1024 * 1024), 2)
-        row['total_tx'] = round(row['total_tx'] / (1024 * 1024), 2)
-        row['total_traffic'] = round(row['total_traffic'] / (1024 * 1024), 2)
+        row['total_rx'] = int(row['total_rx'] / (1024 * 1024))
+        row['total_tx'] = int(row['total_tx'] / (1024 * 1024))
+        row['total_traffic'] = int(row['total_traffic'] / (1024 * 1024))
     # print(user_traffic_row[0])
     # for user in user_traffic_raw:
     #     try:
@@ -202,7 +203,7 @@ def user_details(request, mac):
     total_rx = agg['total_rx'] or 0
     total_tx = agg['total_tx'] or 0
 
-    total = round((total_rx + total_tx) / 1024 / 1024, 2)
+    total = int((total_rx + total_tx) / 1024 / 1024)
 
     # Получаем день самой ранней записи
     all_traffic_data = Traffic.objects.filter(mac=mac)
@@ -281,19 +282,19 @@ def user_day_detail(request, mac, date):
     for hour, data in sorted(hourly_data.items()):
         # hourly_data.items() получаем ключ и значение 
         # sorted() отсортировываем по времени
-        total_mb = round((data['rx'] + data['tx']) / 1024 / 1024, 2)
+        total_mb = int((data['rx'] + data['tx']) / 1024 / 1024)
         hourly_stats.append({
             'hour_start': hour,
             'hour_end': hour + timedelta(hours=1),
             'total_mb': total_mb,
-            'rx': round(data['rx'] / 1024 / 1024, 2),
-            'tx': round(data['tx'] / 1024 / 1024, 2),
+            'rx': int(data['rx'] / 1024 / 1024),
+            'tx': int(data['tx'] / 1024 / 1024),
         })
 
     # Общий трафик за день
     total_rx = sum(row.rx for row in traffic)
     total_tx = sum(row.tx for row in traffic)
-    total_mb = round((total_rx + total_tx) / 1024 / 1024, 2)
+    total_mb = int((total_rx + total_tx) / 1024 / 1024)
 
     return render(request, 'user_day_detail.html', {
         'mac': mac,
@@ -301,3 +302,82 @@ def user_day_detail(request, mac, date):
         'total_mb': total_mb,
         'hourly_stats': hourly_stats,
     })
+
+def user_archive(request, mac):
+    username = request.GET.get('username')
+    # Выделяем архивные данные для данного mac
+    archive_data_raw = (
+        TrafficArchive.objects
+        .filter(mac=mac)
+        .annotate(day_date=TruncDate('day')) # Выделяем дату без времени
+        .values('day_date', 'rx', 'tx')  
+        .order_by('-day_date')     
+    )
+
+    archive_data = []
+    for item in archive_data_raw:
+        archive_data.append({
+            'day_date': item['day_date'],
+            'rx': int(item['rx'] / (1024 * 1024)),
+            'tx': int(item['tx'] / (1024 * 1024)),
+            'total': int((item['rx'] + item['tx']) / (1024 * 1024))
+        })
+
+    context = {
+        'mac': mac,
+        'username': username,
+        'archive_data': archive_data,
+    }
+    return render(request, 'user_archive.html', context)
+
+from .forms import MacAddressForm
+
+def edit_mac(request, mac, description):
+    mac_address = get_object_or_404(MacAddress, mac=mac)
+    
+    if request.method == 'POST':
+        form = MacAddressForm(request.POST, instance=mac_address)
+        if form.is_valid():
+            form.save()
+            return redirect('add_mac')
+    else:
+        form = MacAddressForm(instance=mac_address, initial={'description': description})
+    
+    context = {
+        'form': form,
+        'mac': mac,
+        'description': description
+    }
+    return render(request, 'editing_mac.html', context)
+
+def delete_mac(request, mac):
+    if request.method == 'POST':
+        mac_address = get_object_or_404(MacAddress, mac=mac)
+        mac_address.delete()
+        return redirect('add_mac')
+    return redirect('edit_mac', mac=mac, description=request.GET.get('description', ''))
+
+def first(request):
+    return render(request, 'first.html', context={})
+
+def meter_reading_form(request):
+    room_id = request.POST.get('room_id') or request.GET.get('room_id') # Берем id выбранной комнаты
+    meter_id = request.POST.get('meter_id') or request.GET.get('meter_id')  # Извлекаем meter_id
+    form = MeterReadingForm(room_id=room_id, meter_id=meter_id)
+
+    if request.method == 'POST':
+        form = MeterReadingForm(request.POST, room_id=room_id, meter_id=meter_id)
+        if form.is_valid():
+            reading = Reading(
+                meter=form.cleaned_data['meter'],
+                value=form.cleaned_data['value'],
+                reading_date=form.cleaned_data['reading_date']
+            )
+            try:
+                reading.save()
+                messages.success(request, 'Показание успешно добавлено')
+                return redirect('meter_reading_form')
+            except Exception as e:
+                messages.error(request, f'Ошибка: {str(e)}')
+
+    return render(request, 'meter_reading.html', {'form': form})
